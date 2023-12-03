@@ -2,14 +2,14 @@ package com.example.loadbalancer.service;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.StatsCmd;
-import com.github.dockerjava.api.model.ContainerStats;
+//import com.github.dockerjava.api.model.ContainerStats;
 import com.github.dockerjava.core.DockerClientBuilder;
 
         import java.io.IOException;
         import java.io.InputStream;
         import java.util.Scanner;
 
-public class ContainerStats {
+public class ContainerStatistics {
 
     public static void main(String[] args) {
         String containerId = "your-container-id"; // Replace with the actual container ID
@@ -17,7 +17,7 @@ public class ContainerStats {
         try (DockerClient dockerClient = DockerClientBuilder.getInstance().build()) {
 
             // Step 1: Get container statistics
-            InputStream statsStream = getContainerStats(dockerClient, containerId);
+            InputStream statsStream = getContainerIOStats(dockerClient, containerId);
 
             // Step 2: Parse the statistics and find the load
             if (statsStream != null) {
@@ -34,14 +34,15 @@ public class ContainerStats {
         }
     }
 
-    private static InputStream getContainerStats(DockerClient dockerClient, String containerId) {
-        try {
-            StatsCmd statsCmd = dockerClient.statsCmd(containerId);
-            return statsCmd.exec();
-        } catch (Exception e) {
-            e.printStackTrace();
+    private static InputStream getContainerIOStats(DockerClient dockerClient, String containerId) {
+//        try {
+//            // Use the statsCmd to get real-time I/O stats
+//            StatsCmd statsCmd = dockerClient.statsCmd(containerId);
+//            return statsCmd.exec();
+//        } catch (Exception e) {
+//            e.printStackTrace();
             return null;
-        }
+//        }
     }
 
     private static String readStream(InputStream inputStream) throws IOException {

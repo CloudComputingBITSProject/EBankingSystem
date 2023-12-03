@@ -1,44 +1,44 @@
 package com.example.loadbalancer.controller;
+import com.example.loadbalancer.service.AdminAgent;
 import com.example.loadbalancer.service.RedirectService;
 
+import com.example.loadbalancer.service.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/service1")
-public class Service1Controller {
+@RequestMapping("/service3")
+public class Service3Controller {
     @Autowired
     private RedirectService redirectService;
-//    private final DockerAgent dockerAgent;
-//    ServiceController(DockerAgent dockerAgent){
-//        this.dockerAgent = dockerAgent;
-//    }
-//    @GetMapping("/service1/**")
-//    public String handleHttpServletRequest(HttpServletRequest request) {
-//        // Extracting path from the request
-//        String fullPath = request.getRequestURI();
-//        String dynamicPath = fullPath.replaceFirst("/service1/", "");
-//
-//
-//        // Your logic using the extracted path
-//        return "Dynamic Path: " + dynamicPath;
-//    }
+    @Autowired
+    AdminAgent adminAgent;
+
     @RequestMapping(value = "/**")
-    public ResponseEntity<?> route(HttpServletRequest request) throws IOException {
+    public ResponseEntity<?> route(HttpServletRequest request, @RequestParam String company) throws IOException {
+        Map<String,User> map = adminAgent.getUserList();
+        User currentUser;
+        if(map.containsKey(company)){
+            currentUser = map.get(company);
+        }
+        else{
+            return new ResponseEntity<>("The company name is not registered with us yet.",HttpStatus.NOT_FOUND);
+        }
         String firstUrl = "http://localhost:8080";
         String fullPath = request.getRequestURI();
-        String serviceNo = fullPath.split("/")[2];
-        String dynamicPath = fullPath.replaceFirst("/service/"+serviceNo+"/", "/");
+        System.out.println("fullPath: "+fullPath);
+        String dynamicPath = fullPath.replaceFirst("/service3/", "/");
         String newPath = firstUrl + dynamicPath;
-
-        return redirectService.route(request,"service-"+serviceNo,newPath);
+        return redirectService.route(request,"service-3",newPath,currentUser);
     }
     @GetMapping("/ping")
     public ResponseEntity<?> hello(){

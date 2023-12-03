@@ -11,4 +11,4 @@ RUN mvn -f /home/app/pom.xml -Dmaven.test.skip package
 EXPOSE 8080
 
 # Command to run your application
-ENTRYPOINT ["java", "-jar", "/home/app/target/spring_rest_docker.war"]
+ENTRYPOINT ["java", "-jar", "/home/app/target/load_balancer.war"]

@@ -1,4 +1,4 @@
-package com.example.loadbalancer.service;
+package com.example.loadbalancer.service.autoscaler;
 
 import org.springframework.stereotype.Service;
 

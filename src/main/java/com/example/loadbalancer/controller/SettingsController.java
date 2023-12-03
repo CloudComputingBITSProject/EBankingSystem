@@ -1,15 +1,16 @@
 package com.example.loadbalancer.controller;
 
-import com.example.loadbalancer.service.AutoScaler;
-import com.example.loadbalancer.service.LoadBalancer;
-import com.example.loadbalancer.service.RedirectService;
+import com.example.loadbalancer.service.*;
+import com.github.dockerjava.api.model.Container;
+import com.github.dockerjava.api.model.Image;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletRequest;
-import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,34 +21,68 @@ import org.springframework.web.bind.annotation.GetMapping;
 @RequestMapping("/settings")
 public class SettingsController {
     @Autowired
-    LoadBalancer loadBalancer;
-    @Autowired
-    AutoScaler autoScaler;
-    @Autowired
+    AdminAgent adminAgent;
     private RedirectService redirectService;
-    @PostMapping("/autoscaler/{strategy,user_id}")
-    public ResponseEntity<?> autoScalerController(@PathVariable String strategy,String user_id){
-        //TODO
+    @PostMapping("/autoscaler")
+    public ResponseEntity<?> autoScalerController(@RequestParam String strategy,@RequestParam String service,String username){
+        User currentUser = adminAgent.addAndGetAgent(username);
+        currentUser.setAutoScalerStrategy(strategy,service);
         return new ResponseEntity<>(HttpStatus.OK);
     }
-    @PostMapping("/loadbalancer/{strategy,user_id}")
-    public ResponseEntity<?> loadBalancerController(@PathVariable String strategy){
-        //TODO
+    @PostMapping("/loadbalancer")
+    public ResponseEntity<?> loadBalancerController(@RequestParam String strategy,@RequestParam String service, String username,@RequestParam Optional<List<Integer>> weights){
+        User currentUser = adminAgent.addAndGetAgent(username);
+        currentUser.setLoadBalancerStrategy(strategy,service, weights.orElse(null));
         return new ResponseEntity<>(HttpStatus.OK);
     }
-    @PostMapping("/start/{container_id,user_id}")
-    public ResponseEntity<?> startServiceController(@PathVariable int container_id){
-        //TODO
-        return new ResponseEntity<>(HttpStatus.OK);
-    }
+    @PostMapping("/start")
+    public ResponseEntity<?> startServiceController(@RequestParam List<String> services, String username,@RequestParam  Optional<String> lb_strategy,@RequestParam  Optional<String> as_strategy,@RequestParam Optional<List<Integer>> weights){
+        User currentUser = adminAgent.addAndGetAgent(username);
+        List<Image> images = currentUser.getDockerAgent().listAllImages();
+        String lb_strategyString = lb_strategy.orElse("weightedRoundRobin");
+        String as_strategyString = as_strategy.orElse("threshold");
+        for(String serviceNo: services){
+            String imageName = "service-"+serviceNo;
 
-    @PostMapping("/end/{container_id,user_id}")
-    public ResponseEntity<?> endServiceController(@PathVariable int container_id){
-        //TODO
+            boolean imageExists = currentUser.getDockerAgent().imageAlreadyBuilt(images,imageName);
+            if(!imageExists){
+                System.out.println("Building image"+serviceNo);
+                String imageId = currentUser.getDockerAgent().buildImage("/home/ayush/Cloud Project/LoadBalancer/EBankingSystems/Dockerfile","service-"+serviceNo); //TODO ENV VAR
+                System.out.println("Built image"+serviceNo +"with ID: " + imageId);
+            }
+            List<Container> startedContainers = currentUser.getDockerAgent().createMultipleContainer(2,8080,imageName,username);
+            currentUser.getServiceContainerMap().computeIfAbsent(imageName, k -> new ArrayList<>(startedContainers));
+            currentUser.getLoadBalancerMap().put(imageName,currentUser.setLoadBalancerStrategy(lb_strategyString,imageName,weights.orElse(null)));
+            currentUser.getAutoScalerMap().put(imageName,currentUser.setAutoScalerStrategy(as_strategyString,imageName));
+        }
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+    @PostMapping("/stop")
+    public ResponseEntity<?> endServiceController(@RequestParam List<String> services, String username){
+        User currentUser = adminAgent.addAndGetAgent(username);
+        for(String serviceNo: services){
+            String imageName = "service-"+serviceNo;
+            List<Container> currentlyRunningServiceContainers = currentUser.getServiceContainerMap().get(imageName);
+            currentUser.getDockerAgent().deleteContainers(currentlyRunningServiceContainers);
+//            currentUser.getServiceContainerMap().get("service-"+serviceNo).removeAll(currentlyRunningServiceContainers);
+            currentUser.getServiceContainerMap().remove(imageName);
+            currentUser.getAutoScalerMap().remove(imageName);
+            currentUser.getLoadBalancerMap().remove(imageName);
+        }
         return new ResponseEntity<>(HttpStatus.OK);
     }
     @GetMapping("/ping")
     public ResponseEntity<?> hello(){
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @PostMapping("/startsql")
+    public ResponseEntity<?> startMYSQL(String username){
+        User currentUser = adminAgent.addAndGetAgent(username);
+        List<Image> images = currentUser.getDockerAgent().listAllImages();
+        System.out.println("Starting MySQL Server");
+        SQLAgent startMySQLContainer = new SQLAgent(currentUser.getDockerAgent().getDockerClient());
+        startMySQLContainer.run();
         return new ResponseEntity<>(HttpStatus.OK);
     }
 }

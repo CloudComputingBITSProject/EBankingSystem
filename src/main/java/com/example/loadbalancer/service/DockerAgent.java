@@ -1,13 +1,6 @@
 package com.example.loadbalancer.service;//package com.loadbalancer;
 
-//import com.github.dockerjava.api.DockerClient;
-//import com.github.dockerjava.api.model.Container;
-//import com.github.dockerjava.api.model.Image;
-//import com.github.dockerjava.core.DefaultDockerClientConfig;
-//import com.github.dockerjava.core.DockerClientConfig;
-//import com.github.dockerjava.core.DockerClientImpl;
-//import com.github.dockerjava.transport.DockerHttpClient;
-
+import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
 
@@ -15,6 +8,7 @@ import com.github.dockerjava.api.DockerClient;
 
 import com.github.dockerjava.api.command.BuildImageResultCallback;
 import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.core.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.stereotype.Service;
@@ -23,19 +17,14 @@ import com.github.dockerjava.api.command.CreateNetworkResponse;
 import com.github.dockerjava.api.command.ListContainersCmd;
 import com.github.dockerjava.api.exception.ConflictException;
 import com.github.dockerjava.api.model.*;
-import com.github.dockerjava.core.DefaultDockerClientConfig;
 
-import com.github.dockerjava.core.DockerClientConfig;
-import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.github.dockerjava.transport.DockerHttpClient;
-//import com.github.dockerjava.core.command.StartContainerResultCallback;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateNetworkCmd;
 import com.github.dockerjava.api.command.CreateNetworkResponse;
 import com.github.dockerjava.api.model.ContainerNetwork;
 import com.github.dockerjava.api.model.Network;
-import com.github.dockerjava.core.DockerClientBuilder;
 
 
 import javax.persistence.Entity;
@@ -47,7 +36,7 @@ import java.util.List;
 @Service
 public class DockerAgent {
     DockerClient dockerClient;
-    Map<String,List<Container>> serviceContainerMap = new HashMap<>();
+    String networkName;
     public DockerAgent() {
         DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().build();
         DockerHttpClient httpClient = new ApacheDockerHttpClient.Builder()
@@ -57,56 +46,56 @@ public class DockerAgent {
                 .connectionTimeout(Duration.ofSeconds(30))
                 .responseTimeout(Duration.ofSeconds(45))
                 .build();
-        dockerClient = DockerClientImpl.getInstance(config, httpClient);String networkName = "mynetwork-net";
-        CreateNetworkResponse networkResponse = null;
+        this.dockerClient = DockerClientImpl.getInstance(config, httpClient);
+        this.networkName = "mynetwork-net";
+        CreateNetworkResponse networkResponse;
 
         try{
-            Network existingNetwork = dockerClient.inspectNetworkCmd().withNetworkId(networkName).exec();
+            Network existingNetwork = dockerClient.inspectNetworkCmd().withNetworkId(this.networkName).exec();
             System.out.println("Network already exists: " + existingNetwork.getId());
         }
         catch (Exception e){
             System.out.println("Network does not exist");
-            networkResponse = dockerClient.createNetworkCmd().withName(networkName).exec();
+            networkResponse = dockerClient.createNetworkCmd().withName(this.networkName).exec();
             System.out.println("Network created: " + networkResponse.getId());
         }
     }
-    public static void runContainers(DockerClient dockerClient,List<String> listOfContainerID){
-        for (String containerID : listOfContainerID) {
-            dockerClient.startContainerCmd(containerID).exec();
-            System.out.println("Container started with ID: " + containerID);
-        }
-    }
-    public static List<String> createMultipleContainer(DockerClient dockerClient,int numberOfContainers,int port,String serviceName){
+//    public void runContainers(List<Container> listOfContainerID){
+//        for (Container container : listOfContainerID) {
+//        }
+//    }
+    public List<Container> createMultipleContainer(int numberOfContainers,int port,String serviceName,String userName){
         ExposedPort exposedPort = ExposedPort.tcp(port);
-        List<String> listOfContainerID = new ArrayList<>();
+        List<Container> listOfContainers = new ArrayList<>();
         for (int i = 0; i < numberOfContainers; i++) {
-            String containerName = serviceName +"-container-" + (i+1);
+            String containerName = userName+"-"+ serviceName +"-container-" + (i+1); //TODO add username
             try {
-                listOfContainerID.add(createContainer(dockerClient, exposedPort, containerName, serviceName));
+                listOfContainers.add(createContainer(exposedPort, containerName, serviceName));
             }catch (ConflictException e){
-                List<Container> containers = dockerClient.listContainersCmd().withShowAll(true).exec();
-                String containerId = findContainerIdByName(containers, containerName);
-                System.out.println(containerId);
-                dockerClient.removeContainerCmd(containerId).exec(); //TODO Modidy
-                listOfContainerID.add(createContainer(dockerClient, exposedPort, containerName, serviceName));
+                List<Container> containers = this.dockerClient.listContainersCmd().withShowAll(true).exec();
+                String containerId = findContainerIdByName(containers, containerName).getId();
+                System.out.println("ID: "+containerId);
+                this.dockerClient.removeContainerCmd(containerId).exec(); //TODO Modidy
+                listOfContainers.add(createContainer(exposedPort, containerName, serviceName));
             }
         }
         System.out.printf("%d instances of container increased successfully: \n\n",numberOfContainers);
-        for (int i = 0; i < numberOfContainers; i++) {
-            System.out.printf("Container running with ID: %s\n",listOfContainerID.get(i));
-        }
-        System.out.println("Starting the containers one by one");
-        runContainers(dockerClient,listOfContainerID);
-        return listOfContainerID;
+//        for (Container container: listOfContainers) {
+//            if(container!=null)
+//                System.out.printf("Container built with ID: %s\n",container.getId());
+//        }
+//        System.out.println("Running the built containers one by one");
+//        runContainers(listOfContainers);
+        return listOfContainers;
     }
-    public static void buildAllImages(DockerClient dockerClient){
-        List<Image> images = listAllImages(dockerClient);
+    public void buildAllImages(){
+        List<Image> images = listAllImages();
         for(int i=1;i<=1;i++){
             String imageName = "service-"+i;
-            boolean imageExists = images.stream().anyMatch(image -> image.getRepoTags()!=null && Arrays.asList(image.getRepoTags()).contains(imageName));
+            boolean imageExists = imageAlreadyBuilt(images,imageName);
             if(!imageExists){
                 System.out.println("Building image"+i);
-                String imageId = buildImage(dockerClient,"/home/ayush/Cloud Project/LoadBalancer/EBankingSystems/Dockerfile","service-"+i);
+                String imageId = buildImage("/home/ayush/Cloud Project/LoadBalancer/EBankingSystems/Dockerfile","service-"+i); //TODO ENV VAR
                 System.out.println("Built image"+i +"with ID: " + imageId);
             }
             else {
@@ -114,23 +103,47 @@ public class DockerAgent {
             }
         }
     }
-    private static String findContainerIdByName(List<Container> containers, String containerName) {
+    private Statistics getContainerStats(String containerId){
+            InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>();
+            this.dockerClient.statsCmd(containerId).exec(callback);
+            Statistics stats=null;
+            try {
+                stats = callback.awaitResult();
+                callback.close();
+            } catch (RuntimeException | IOException e) {
+                System.out.println("Unable to retrieve container stats.");
+                return null;
+                // you may want to throw an exception here
+            }
+            return stats; // this may be null or invalid if the container has terminated
+        }
+
+    private Container findContainerIdByName(List<Container> containers, String containerName) {
         for (Container container : containers) {
             for (String name : container.getNames()) {
                 // Check if the container name matches
                 if (name.equals("/" + containerName)) {
-                    return container.getId();
+                    return container;
                 }
             }
         }
         return null; // Container not found with the specified name
     }
-    public static String createContainer(DockerClient dockerClient,ExposedPort exposedPort,String containerName,String service_tag){
+    private String findImageIdByName(List<Image> images, String imageName) {
+        for (Image image : images) {
+            if (Arrays.asList(image.getRepoTags()).contains(imageName)) {
+                return image.getId();
+            }
+        }
+        return ""; // Container not found with the specified name
+    }
+
+    public Container createContainer(ExposedPort exposedPort,String containerName,String service_tag){
         Ports portBindings = new Ports();
         portBindings.bind(exposedPort, Ports.Binding.bindPort(0));
 
         CreateContainerResponse container
-                = dockerClient.createContainerCmd(service_tag +":latest")
+                = this.dockerClient.createContainerCmd(service_tag +":latest")
                 .withName(containerName)
                 .withHostName("ayush")
                 .withEnv("spring.datasource.url=jdbc:mysql://docker-mysql:3306/mysql?allowPublicKeyRetrieval=true")
@@ -138,20 +151,31 @@ public class DockerAgent {
                 .withPortBindings(portBindings)
                 .withNetworkMode("mynetwork-net")
                 .exec();
-        System.out.printf("Container created with Name: %s \t ID: %s\n\n",containerName,container.getId());
-        return container.getId();
+        this.dockerClient.startContainerCmd(container.getId()).exec();
+        System.out.printf("Container created and started with Name: %s \\t  ID: %s\n\n",containerName,container.getId());
+        return findContainerIdByName(listAllContainers(),containerName);
     }
-    public static void deleteContainers(DockerClient dockerClient,List<Container> listOfContainerID){
+    public void deleteContainers(List<Container> listOfContainerID){
         for (Container container : listOfContainerID) {
-            dockerClient.stopContainerCmd(container.getId()).exec();
-            System.out.println("Container stopped with ID: " + container.getId());
-//            dockerClient.killContainerCmd(container.getId()).exec();
-//            System.out.println("Container killed with ID: " + container.getId());
+            if(container.getState().equals("running")){
+                this.dockerClient.stopContainerCmd(container.getId()).exec();
+                this.dockerClient.removeContainerCmd(container.getId()).exec(); //TODO Remove this line in the end
+                System.out.println("Container stopped and removed with ID: " + container.getId());
+            }
+            else{
+                System.out.println("Container could not be stopped. It wasn't running with ID: " + container.getId());
+                try{
+                    this.dockerClient.removeContainerCmd(container.getId()).exec(); //TODO Remove this line in the end
+                }
+                catch(Exception e){
+                    System.out.println("Container could not be removed with ID: " + container.getId());
+                }
+            }
         }
     }
 
-    public static List<Container> listAllContainers(DockerClient dockerClient){
-        List<Container> containers = dockerClient.listContainersCmd().exec();
+    public List<Container> listAllContainers(){
+        List<Container> containers = this.dockerClient.listContainersCmd().exec();
         System.out.println("\nList of all currently Running Containers");
 
         for(Container container: containers){
@@ -159,53 +183,83 @@ public class DockerAgent {
         }
         return containers;
     }
-    public static List<Container> listAllContainersExited(DockerClient dockerClient){
-        List<Container> containers = dockerClient.listContainersCmd()
-                .withShowSize(true)
-                .withShowAll(true)
-                .withStatusFilter(Collections.singleton("exited")).exec();
-        System.out.println("\nList of all Exited and Running Containers");
-        for(Container container: containers){
-            System.out.println(Arrays.toString(container.getNames()));
-            System.out.println(container.getImageId());
-            System.out.println();
-        }
-        return containers;
+//    public List<Container> listAllContainersExited(){
+//        List<Container> containers = this.dockerClient.listContainersCmd()
+//                .withShowSize(true)
+//                .withShowAll(true)
+//                .withStatusFilter(Collections.singleton("exited")).exec();
+//        System.out.println("\nList of all Exited and Running Containers");
+//        for(Container container: containers){
+//            System.out.println(Arrays.toString(container.getNames()));
+//            System.out.println(container.getImageId());
+//            System.out.println();
+//        }
+//        return containers;
+//    }
+
+    public List<Image> listAllImages(){
+        return this.dockerClient.listImagesCmd().withShowAll(true).exec();
+    }
+    public boolean imageAlreadyBuilt(List<Image> images ,String service_name) {
+        System.out.println(service_name);
+        System.out.print("Checking if image already exists: ");
+        boolean exists = images.stream().anyMatch(image -> image.getRepoTags() != null && Arrays.asList(image.getRepoTags()).contains(service_name+":latest"));
+        System.out.println(exists);
+        return exists;
+    }
+    public String buildImage(String dockerFilePath,String service_name){
+        String imageId;
+//        List <Image> images = listAllImages();
+//        if(!imageAlreadyBuilt(images,service_name)){
+        imageId = this.dockerClient.buildImageCmd()
+                    .withDockerfile(new File(dockerFilePath))
+                    .withPull(true)
+                    .withNoCache(true)
+                    .withTag(service_name+":latest")
+                    .exec(new BuildImageResultCallback())
+                    .awaitImageId();
+//        }
+//        else{
+//            imageId = findImageIdByName(images,service_name);
+//        }
+        return imageId;
     }
 
-    public static List<Image> listAllImages(DockerClient dockerClient){
-        List<Image> images = dockerClient.listImagesCmd().withShowAll(true).exec();
-        for(Image image: images){
-            System.out.println(image.getId());
-        }
-        return images;
+
+// Statistics Classes of a docker file.
+    public Long getMemoryUsage(DockerAgent dockerAgent,String containerName){
+        Statistics stats = dockerAgent.getContainerStats(containerName);
+        Long memoryUsage = stats.getMemoryStats().getUsage();
+        System.out.println("Container memory stats usage: "+memoryUsage);
+        return memoryUsage;
     }
-    public static String buildImage(DockerClient dockerClient,String dockerFilePath,String service_tag){
-        String imageId = dockerClient.buildImageCmd()
-                .withDockerfile(new File(dockerFilePath))
-                .withPull(true)
-                .withNoCache(true)
-                .withTag(service_tag+":latest")
-                .exec(new BuildImageResultCallback())
-                .awaitImageId();
-        return imageId;
+    public Long getCpuUsage(DockerAgent dockerAgent,String containerName){
+        Statistics stats = dockerAgent.getContainerStats(containerName);
+        Long cpuUsage = stats.getCpuStats().getCpuUsage().getTotalUsage();
+        System.out.println("Container cpu stats usage: "+cpuUsage);
+        return cpuUsage;
+    }
+    public Long getIOUsage(DockerAgent dockerAgent,String containerName){
+        Statistics stats = dockerAgent.getContainerStats(containerName);
+//        Long ioUsage = stats.getMemoryStats().getUsage();
+        stats.getNetworks().forEach((k,v)-> System.out.println("Network: "+k+" "+v.getRxBytes()));
+        return 0L;
+//        System.out.println("Container memory stats usage: "+memoryUsage);
+//        return memoryUsage;
     }
 
     public static void main(String[] args) {
 //        DockerClient dockerClient = DockerClientBuilder.getInstance().build();
 //        List<Image> images = dockerClient.listImagesCmd().exec();
 //
-        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().build();
-        DockerHttpClient httpClient = new ApacheDockerHttpClient.Builder()
-                .dockerHost(config.getDockerHost())
-                .sslConfig(config.getSSLConfig())
-                .maxConnections(100)
-                .connectionTimeout(Duration.ofSeconds(30))
-                .responseTimeout(Duration.ofSeconds(45))
-                .build();
-
-        DockerClient dockerClient = DockerClientImpl.getInstance(config,httpClient);
-
+          DockerAgent dockerAgent = new DockerAgent();
+          dockerAgent.getIOUsage(dockerAgent,"yash-service-1-container-1");
+//        System.out.println("Container memory stats usage: "+stats.getMemoryStats().getUsage());
+//        System.out.println();
+//        System.out.println("Container cpu stats usage: "+stats.getCpuStats().getCpuUsage().getTotalUsage());
+//        System.out.println();
+//        System.out.println("Container IO usage: "+stats.getBlkioStats().toString());
+//        System.out.println();
 
 
 //        System.out.println("Fetching list of all running Containers");
@@ -221,8 +275,8 @@ public class DockerAgent {
 
 //        dockerClient.killContainerCmd("b93bdec6bb05d9e4fc93527e7490003d4cd246402dbc2d5f3e26fa265aa34167").exec();
 
-        System.out.println("Building all images");
-        buildAllImages(dockerClient);
+//        System.out.println("Building all images");
+//        dockerAgent.buildAllImages();
 
 
 //        System.out.println("Starting MySQL Server");
@@ -230,12 +284,13 @@ public class DockerAgent {
 //        startMySQLContainer.run();
 
 
-        System.out.println("Creating multiple Container on the built image");
-        List<String> containerId = createMultipleContainer(dockerClient,1,8080,"service-1");
+//        System.out.println("Creating multiple Container on the built image");
+//        List<Container> containers = dockerAgent.createMultipleContainer(1,8080,"service-1","root");
 
 
-        System.out.println("Fetching list of all running Containers");
-        listAllContainers(dockerClient);
+
+//        System.out.println("Fetching list of all running Containers");
+//        dockerAgent.listAllContainers();
 
 
 //        System.out.println("Fetching list of all running Containers");

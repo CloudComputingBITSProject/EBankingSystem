@@ -11,8 +11,21 @@ import java.util.Map;
 @Setter
 @Component
 public class AdminAgent {
-    Map<String,DockerAgent> userMapping;
+    private Map<String,User> userList;
     public AdminAgent(){
-        this.userMapping = new HashMap<>();
+        this.userList = new HashMap<>();
+    }
+    public User addAndGetAgent(String username){
+        if(userList!=null){
+            if(userList.containsKey(username)){
+                return userList.get(username);
+            }
+        }
+        else{
+            this.userList = new HashMap<>();
+        }
+        User newUser = new User(username);
+        this.userList.put(username,newUser);
+        return newUser;
     }
 }

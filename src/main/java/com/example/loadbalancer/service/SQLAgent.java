@@ -77,7 +77,11 @@ public class SQLAgent {
                 List<Container> containers = dockerClient.listContainersCmd().withShowAll(true).exec();
                 String containerId = findContainerIdByName(containers, containerName);
                 System.out.println(containerId);
-                dockerClient.removeContainerCmd(containerId).exec(); //TODO Modidy
+                try{
+                    dockerClient.stopContainerCmd(containerId).exec();
+                }catch(Exception e2){
+                    dockerClient.removeContainerCmd(containerId).exec();
+                }
                 container = this.dockerClient.createContainerCmd("mariadb:11.1.3")
                         .withEnv(env)
                         .withName("docker-mysql")
@@ -91,6 +95,7 @@ public class SQLAgent {
 
             // Start container
             dockerClient.startContainerCmd(container.getId()).exec();
+            System.out.println("SQL container is running successfully");
             // Wait for the container to finish (optional)
 //            dockerClient.waitContainerCmd(container.getId())
 //                    .exec(new WaitContainerResultCallback())
