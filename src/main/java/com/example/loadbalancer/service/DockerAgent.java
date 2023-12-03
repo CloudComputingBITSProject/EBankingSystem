@@ -95,7 +95,8 @@ public class DockerAgent {
             boolean imageExists = imageAlreadyBuilt(images,imageName);
             if(!imageExists){
                 System.out.println("Building image"+i);
-                String imageId = buildImage("/home/ayush/Cloud Project/LoadBalancer/EBankingSystems/Dockerfile","service-"+i); //TODO ENV VAR
+                String filepath = "/home/ayush/Cloud Project/LoadBalancer/EBankingSystems"+i+"/Dockerfile";
+                String imageId = buildImage(filepath,"service-"+i); //TODO ENV VAR
                 System.out.println("Built image"+i +"with ID: " + imageId);
             }
             else {
