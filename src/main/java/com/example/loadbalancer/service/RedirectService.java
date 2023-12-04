@@ -3,6 +3,7 @@ package com.example.loadbalancer.service;
 import org.apache.commons.io.IOUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -36,8 +37,9 @@ public class RedirectService {
                     new HttpEntity<>(body),
                     Object.class,
                     request.getParameterMap());
-        } catch (final HttpClientErrorException e) {
-            return new ResponseEntity<>(e.getResponseBodyAsByteArray(), e.getResponseHeaders(), e.getStatusCode());
+        } catch (Exception e) {
+            return new ResponseEntity<>(HttpStatus.OK); //TODO DEBUG
+//            return new ResponseEntity<>(e.getResponseBodyAsByteArray(), e.getResponseHeaders(), e.getStatusCode());
         }
     }
     public String redirectPath(String originalUrl,int newPortNumber){

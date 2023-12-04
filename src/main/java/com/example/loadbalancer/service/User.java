@@ -9,7 +9,6 @@ import lombok.Setter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 //@Component
 @Getter
@@ -41,13 +40,13 @@ public class User {
                 loadBalancer = new RandomLoadBalancer(this.serviceContainerMap.get(serviceNameComplete));
                 break;
             case("weightedLeastConnection") :
-                loadBalancer = new WeightedLeastConnectionLoadBalancer(this.serviceContainerMap.get(serviceNameComplete),weights);
+                loadBalancer = new WeightedLeastConnectionLoadBalancer(this.serviceContainerMap.get(serviceNameComplete),weights,dockerAgent);
                 break;
             case("ipHash") :
                 loadBalancer = new IpHashLoadBalancer(this.serviceContainerMap.get(serviceNameComplete));
                 break;
             case ("powerOfTwoChoices"):
-                loadBalancer = new PowerOfTwoChoicesLoadBalancer(this.serviceContainerMap.get(serviceNameComplete));
+                loadBalancer = new PowerOfTwoChoicesLoadBalancer(this.serviceContainerMap.get(serviceNameComplete),dockerAgent);
                 break;
             default:
                 loadBalancer = new WeightedRoundRobinLoadBalancer(this.serviceContainerMap.get(serviceNameComplete),weights);
@@ -62,10 +61,10 @@ public class User {
         AutoScaler autoScaler;
         switch (strategy){
             case("threshold") :
-                autoScaler = new ThresholdAutoScaler(this.serviceContainerMap.get(serviceNameComplete));
+                autoScaler = new ThresholdAutoScaler(this.serviceContainerMap.get(serviceNameComplete),dockerAgent,serviceNameComplete,username);
                 break;
             case("timeseries") :
-                autoScaler = new TimeSeriesAutoScaler(this.serviceContainerMap.get(serviceNameComplete));
+                autoScaler = new TimeSeriesAutoScaler(this.serviceContainerMap.get(serviceNameComplete),dockerAgent,serviceNameComplete,username);
                 break;
             default:
                 autoScaler = new NullAutoScaler(this.serviceContainerMap.get(serviceNameComplete));

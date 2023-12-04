@@ -50,10 +50,10 @@ public class SettingsController {
                 String imageId = currentUser.getDockerAgent().buildImage("/home/ayush/Cloud Project/LoadBalancer/EBankingSystems/Dockerfile","service-"+serviceNo); //TODO ENV VAR
                 System.out.println("Built image"+serviceNo +"with ID: " + imageId);
             }
-            List<Container> startedContainers = currentUser.getDockerAgent().createMultipleContainer(2,8080,imageName,username);
-            currentUser.getServiceContainerMap().computeIfAbsent(imageName, k -> new ArrayList<>(startedContainers));
-            currentUser.getLoadBalancerMap().put(imageName,currentUser.setLoadBalancerStrategy(lb_strategyString,imageName,weights.orElse(null)));
-            currentUser.getAutoScalerMap().put(imageName,currentUser.setAutoScalerStrategy(as_strategyString,imageName));
+            List<Container> startedContainers = currentUser.getDockerAgent().createMultipleContainer(2,8080,imageName,username,0);
+            currentUser.getServiceContainerMap().put(imageName,new ArrayList<>(startedContainers));
+            currentUser.getLoadBalancerMap().put(imageName,currentUser.setLoadBalancerStrategy(lb_strategyString,serviceNo,weights.orElse(null)));
+            currentUser.getAutoScalerMap().put(imageName,currentUser.setAutoScalerStrategy(as_strategyString,serviceNo));
         }
         return new ResponseEntity<>(HttpStatus.OK);
     }
@@ -62,7 +62,9 @@ public class SettingsController {
         User currentUser = adminAgent.addAndGetAgent(username);
         for(String serviceNo: services){
             String imageName = "service-"+serviceNo;
+
             List<Container> currentlyRunningServiceContainers = currentUser.getServiceContainerMap().get(imageName);
+
             currentUser.getDockerAgent().deleteContainers(currentlyRunningServiceContainers);
 //            currentUser.getServiceContainerMap().get("service-"+serviceNo).removeAll(currentlyRunningServiceContainers);
             currentUser.getServiceContainerMap().remove(imageName);

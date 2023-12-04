@@ -6,6 +6,7 @@ import com.github.dockerjava.api.command.CreateNetworkResponse;
 import com.github.dockerjava.api.exception.ConflictException;
 import com.github.dockerjava.api.model.*;
 
+import java.io.File;
 import java.util.List;
 
 public class SQLAgent {
@@ -61,8 +62,16 @@ public class SQLAgent {
 //                    .withBinds(new HostConfig.Bind("./docker/mysql/data", volume));
 
             // Create container
+            File f = new File("user_data.txt");
+
+            // Get the absolute path of file f
+            String absolute = f.getAbsolutePath();
+
+            String newAbsolute = absolute.substring(0,absolute.length()-13);
             String containerName = "docker-mysql";
             CreateContainerResponse container;
+            String filePath = newAbsolute + "docker/mysql/data";
+
             try {
                 container = this.dockerClient.createContainerCmd("mariadb:11.1.3")
                         .withEnv(env)
@@ -70,7 +79,7 @@ public class SQLAgent {
                         .withExposedPorts(exposedPort)
                         .withPortBindings(portBindings)
                         .withVolumes(volume)
-                        .withBinds(new Bind("/home/ayush/Cloud Project/LoadBalancer/docker/mysql/data", volume))
+                        .withBinds(new Bind(filePath, volume))
                         .withNetworkMode("mynetwork-net")
                         .exec();
             }catch (ConflictException e){
@@ -89,7 +98,7 @@ public class SQLAgent {
                         .withExposedPorts(exposedPort)
                         .withPortBindings(portBindings)
                         .withVolumes(volume)
-                        .withBinds(new Bind("/home/ayush/Cloud Project/LoadBalancer/docker/mysql/data", volume))
+                        .withBinds(new Bind(filePath, volume))
                         .withNetworkMode("mynetwork-net")
                         .exec();
             }

@@ -25,9 +25,6 @@ import com.github.dockerjava.api.command.CreateNetworkCmd;
 import com.github.dockerjava.api.command.CreateNetworkResponse;
 import com.github.dockerjava.api.model.ContainerNetwork;
 import com.github.dockerjava.api.model.Network;
-
-
-import javax.persistence.Entity;
 import java.io.File;
 import java.util.List;
 
@@ -64,22 +61,36 @@ public class DockerAgent {
 //        for (Container container : listOfContainerID) {
 //        }
 //    }
-    public List<Container> createMultipleContainer(int numberOfContainers,int port,String serviceName,String userName){
+    public List<Container> createMultipleContainer(int numberOfContainers,int port,String serviceName,String userName,int start){
         ExposedPort exposedPort = ExposedPort.tcp(port);
         List<Container> listOfContainers = new ArrayList<>();
-        for (int i = 0; i < numberOfContainers; i++) {
-            String containerName = userName+"-"+ serviceName +"-container-" + (i+1); //TODO add username
+        for (int i = start; numberOfContainers>0; i++) {
+            if(i>=10){
+                System.out.println("Maximum number of containers reached");
+                break;
+            }
+            String containerName = userName+"-"+ serviceName +"-container-" + (i+1);
+//            System.out.println("DEBUG 1");
             try {
                 listOfContainers.add(createContainer(exposedPort, containerName, serviceName));
+//                System.out.println("DEBUG 2");
             }catch (ConflictException e){
+//                System.out.println("DEBUG 3");
                 List<Container> containers = this.dockerClient.listContainersCmd().withShowAll(true).exec();
                 String containerId = findContainerIdByName(containers, containerName).getId();
                 System.out.println("ID: "+containerId);
-                this.dockerClient.removeContainerCmd(containerId).exec(); //TODO Modidy
+                try{
+//                    System.out.println("DEBUG 4");
+                    this.dockerClient.removeContainerCmd(containerId).exec();
+                }catch (ConflictException e2){
+                    this.dockerClient.stopContainerCmd(containerId).exec();
+                    this.dockerClient.removeContainerCmd(containerId).exec();
+                }
                 listOfContainers.add(createContainer(exposedPort, containerName, serviceName));
             }
+            numberOfContainers--;
         }
-        System.out.printf("%d instances of container increased successfully: \n\n",numberOfContainers);
+        System.out.printf("%d instances of container increased successfully: \n\n",listOfContainers.size());
 //        for (Container container: listOfContainers) {
 //            if(container!=null)
 //                System.out.printf("Container built with ID: %s\n",container.getId());
@@ -95,7 +106,7 @@ public class DockerAgent {
             boolean imageExists = imageAlreadyBuilt(images,imageName);
             if(!imageExists){
                 System.out.println("Building image"+i);
-                String filepath = "/home/ayush/Cloud Project/LoadBalancer/EBankingSystems"+i+"/Dockerfile";
+                String filepath = "./EBankingSystems"+i+"/Dockerfile";
                 String imageId = buildImage(filepath,"service-"+i); //TODO ENV VAR
                 System.out.println("Built image"+i +"with ID: " + imageId);
             }
@@ -106,15 +117,36 @@ public class DockerAgent {
     }
     private Statistics getContainerStats(String containerId){
             InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>();
-            this.dockerClient.statsCmd(containerId).exec(callback);
-            Statistics stats=null;
+//            System.out.println("DEBUG: " +containerId);
+            List<Container> list = listAllContainers(false);
+            String id ="";
+            for(Container container: list){
+//                System.out.println("DEBUG: " +Arrays.toString(container.getNames()));
+                if(Arrays.toString(container.getNames()).equals(containerId)){
+//                    System.out.println("DEBUG: Match Found");
+                    id = container.getId();
+//                    containerId = container.getId();
+                }
+//                else{
+////                    System.out.println("DEBUG: Match Not Found");
+//                }
+            }
+//            System.out.println("DEBUG: " + containerId.startsWith("[/"));
+//            if(containerId.startsWith("[/")){
+//                containerId = containerId.substring(1);
+//            }
+            if(id.equals("")){
+//                System.out.println("DEBUG: NULL");
+                return null;
+            }
+            this.dockerClient.statsCmd(id).exec(callback);
+            Statistics stats;
             try {
                 stats = callback.awaitResult();
                 callback.close();
             } catch (RuntimeException | IOException e) {
                 System.out.println("Unable to retrieve container stats.");
                 return null;
-                // you may want to throw an exception here
             }
             return stats; // this may be null or invalid if the container has terminated
         }
@@ -239,19 +271,49 @@ public class DockerAgent {
         System.out.println("Container memory stats usage: "+memoryUsage);
         return memoryUsage;
     }
-    public Long getCpuUsage(DockerAgent dockerAgent,String containerName){
+    public double getCpuUsage(DockerAgent dockerAgent,String containerName){
         Statistics stats = dockerAgent.getContainerStats(containerName);
-        Long cpuUsage = stats.getCpuStats().getCpuUsage().getTotalUsage();
-        System.out.println("Container cpu stats usage: "+cpuUsage);
-        return cpuUsage;
+        long totalUsage = stats.getCpuStats().getCpuUsage().getTotalUsage();
+        long systemCpuUsage = stats.getCpuStats().getSystemCpuUsage() ;
+
+        // Calculate the percentage
+        double cpuUsagePercentage = ((double) totalUsage / (double) systemCpuUsage) * 100.0;
+//        System.out.println("Container total  cpu usage: "+totalUsage);
+//        System.out.println("Container system cpu usage: "+systemCpuUsage);
+//        System.out.println("Container cpu stats usage: "+cpuUsagePercentage);
+
+        return cpuUsagePercentage;
+
     }
     public Long getIOUsage(DockerAgent dockerAgent,String containerName){
         Statistics stats = dockerAgent.getContainerStats(containerName);
 //        Long ioUsage = stats.getMemoryStats().getUsage();
-        stats.getNetworks().forEach((k,v)-> System.out.println("Network: "+k+" "+v.getRxBytes()));
-        return 0L;
+//        stats.getNetworks().forEach((k,v)-> System.out.println("Network: "+k+" "+v.getRxBytes()));
+        return stats.getNetworks().get("eth0").getRxBytes();
 //        System.out.println("Container memory stats usage: "+memoryUsage);
 //        return memoryUsage;
+    }
+
+    public List<Container> scaleUp(DockerAgent dockerAgent, String username, String serviceName,int currentCount,int numberOfContainers) {
+//        System.out.println("serviceName: "+serviceName);
+//        System.out.println("username: "+username);
+//        System.out.println("currentCount: "+currentCount);
+        return dockerAgent.createMultipleContainer(numberOfContainers,8080,serviceName,username,currentCount);
+    }
+
+    public List<Container> scaleDown(DockerAgent dockerAgent, String username, String serviceName,int currentCount,int numberOfContainers) {
+        List<Container> containers = dockerAgent.listAllContainers();
+        List<Container> containersToBeDeleted = new ArrayList<>();
+        for(int i=currentCount-1;i>2 && numberOfContainers>0;i--){
+            for(Container container: containers){
+                if(Arrays.toString(container.getNames()).equals(username+"-"+serviceName+"-container-"+i)){
+                    containersToBeDeleted.add(container);
+                }
+            }
+            numberOfContainers--;
+        }
+        dockerAgent.deleteContainers(containersToBeDeleted);
+        return containersToBeDeleted;
     }
 
     public static void main(String[] args) {
@@ -259,7 +321,16 @@ public class DockerAgent {
 //        List<Image> images = dockerClient.listImagesCmd().exec();
 //
           DockerAgent dockerAgent = new DockerAgent();
-          dockerAgent.getIOUsage(dockerAgent,"yash-service-1-container-1");
+          try{
+              System.out.println(dockerAgent.getCpuUsage(dockerAgent,"root-service-1-container-1"));
+
+//              System.out.println(dockerAgent.getIOUsage(dockerAgent,"root-service-1-container-1"));
+          }
+          catch (Exception e){
+              System.out.println(e.getMessage());
+              System.out.println(Arrays.toString(e.getStackTrace()));
+          }
+
 //        System.out.println("Container memory stats usage: "+stats.getMemoryStats().getUsage());
 //        System.out.println();
 //        System.out.println("Container cpu stats usage: "+stats.getCpuStats().getCpuUsage().getTotalUsage());
@@ -331,4 +402,5 @@ public class DockerAgent {
 //                .awaitImageId();
 
     }
+
 }

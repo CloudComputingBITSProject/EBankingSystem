@@ -25,7 +25,7 @@ public class WeightedRoundRobinLoadBalancer implements LoadBalancer {
         }
         this.containerList = containerList;
         this.weights = finalWeights;
-        System.out.println("Weights: "+this.weights);
+//        System.out.println("Weights: "+this.weights);
     }
     public int nextContainerPort(String ipAddress){
         int port = 9090;

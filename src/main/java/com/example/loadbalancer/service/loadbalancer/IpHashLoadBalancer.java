@@ -19,6 +19,7 @@ public class IpHashLoadBalancer implements LoadBalancer {
     public int nextContainerPort(String ipAddress){
         int port = 9090;
         int n = containerList.size();
+
         String sourceIP = ipAddress;
         String destinationIP = "0:0:0:0:0:0:0:1"; //localhost
         int hashValue = IPHashFunction.hashFunction(sourceIP,destinationIP);
