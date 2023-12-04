@@ -11,14 +11,18 @@ public class WeightedRoundRobinLoadBalancer implements LoadBalancer {
     List<Integer> weights;
     private int lastAccessedContainer = -1;
     private int currentWeight = 0;
-    public WeightedRoundRobinLoadBalancer(List<Container> containerList,List<Integer> weights){
+    public WeightedRoundRobinLoadBalancer(List<Container> containerList,List<String> weights){
         System.out.println("WeightedRoundRobinLoadBalancer LoadBalancer Implementation");
         List<Integer> finalWeights;
         if(weights==null){
             finalWeights = new ArrayList<>();
             List.of(containerList.size()).forEach((n)-> finalWeights.add(1)); //Default 1 weight for each container
         }
-        else finalWeights = weights;
+        else{
+            finalWeights = new ArrayList<>();
+            for(String weight: weights)
+                finalWeights.add(Integer.parseInt(weight));
+        }
         this.containerList = containerList;
         this.weights = finalWeights;
         System.out.println("Weights: "+this.weights);
@@ -26,6 +30,12 @@ public class WeightedRoundRobinLoadBalancer implements LoadBalancer {
     public int nextContainerPort(String ipAddress){
         int port = 9090;
         int n = containerList.size();
+        while(weights.size()<n){
+            weights.add(1);
+        }
+        while(weights.size()>n){
+            weights.remove(weights.size()-1);
+        }
         Container container;
         if(lastAccessedContainer != -1){
             if(currentWeight < weights.get(lastAccessedContainer)){

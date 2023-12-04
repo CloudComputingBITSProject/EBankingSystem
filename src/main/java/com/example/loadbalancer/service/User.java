@@ -30,46 +30,48 @@ public class User {
 //        this.autoScaler= null;//TODO Set Default
     }
 
-    public LoadBalancer setLoadBalancerStrategy(String strategy, String serviceName, List<Integer> weights) {
+    public LoadBalancer setLoadBalancerStrategy(String strategy, String serviceName, List<String> weights) {
+        String serviceNameComplete = "service-"+serviceName;
         LoadBalancer loadBalancer;
         switch (strategy){
             case("weightedRoundRobin") :
-                loadBalancer = new WeightedRoundRobinLoadBalancer(this.serviceContainerMap.get(serviceName),weights);
+                loadBalancer = new WeightedRoundRobinLoadBalancer(this.serviceContainerMap.get(serviceNameComplete),weights);
                 break;
             case("random") :
-                loadBalancer = new RandomLoadBalancer(this.serviceContainerMap.get(serviceName));
+                loadBalancer = new RandomLoadBalancer(this.serviceContainerMap.get(serviceNameComplete));
                 break;
             case("weightedLeastConnection") :
-                loadBalancer = new WeightedLeastConnectionLoadBalancer(this.serviceContainerMap.get(serviceName),weights);
+                loadBalancer = new WeightedLeastConnectionLoadBalancer(this.serviceContainerMap.get(serviceNameComplete),weights);
                 break;
             case("ipHash") :
-                loadBalancer = new IpHashLoadBalancer(this.serviceContainerMap.get(serviceName));
+                loadBalancer = new IpHashLoadBalancer(this.serviceContainerMap.get(serviceNameComplete));
                 break;
             case ("powerOfTwoChoices"):
-                loadBalancer = new PowerOfTwoChoicesLoadBalancer(this.serviceContainerMap.get(serviceName));
+                loadBalancer = new PowerOfTwoChoicesLoadBalancer(this.serviceContainerMap.get(serviceNameComplete));
                 break;
             default:
-                loadBalancer = new WeightedRoundRobinLoadBalancer(this.serviceContainerMap.get(serviceName),weights);
+                loadBalancer = new WeightedRoundRobinLoadBalancer(this.serviceContainerMap.get(serviceNameComplete),weights);
                 break;
         }
-        loadBalancerMap.put(serviceName,loadBalancer);
+        loadBalancerMap.put(serviceNameComplete,loadBalancer);
         return loadBalancer;
     }
 
     public AutoScaler setAutoScalerStrategy(String strategy,String serviceName) {
+        String serviceNameComplete = "service-"+serviceName;
         AutoScaler autoScaler;
         switch (strategy){
             case("threshold") :
-                autoScaler = new ThresholdAutoScaler(this.serviceContainerMap.get(serviceName));
+                autoScaler = new ThresholdAutoScaler(this.serviceContainerMap.get(serviceNameComplete));
                 break;
             case("timeseries") :
-                autoScaler = new TimeSeriesAutoScaler(this.serviceContainerMap.get(serviceName));
+                autoScaler = new TimeSeriesAutoScaler(this.serviceContainerMap.get(serviceNameComplete));
                 break;
             default:
-                autoScaler = new ThresholdAutoScaler(this.serviceContainerMap.get(serviceName));
+                autoScaler = new NullAutoScaler(this.serviceContainerMap.get(serviceNameComplete));
                 break;
             }
-        autoScalerMap.put(serviceName,autoScaler);
+        autoScalerMap.put(serviceNameComplete,autoScaler);
         return autoScaler;
     }
 }

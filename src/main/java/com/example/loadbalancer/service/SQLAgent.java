@@ -79,6 +79,7 @@ public class SQLAgent {
                 System.out.println(containerId);
                 try{
                     dockerClient.stopContainerCmd(containerId).exec();
+                    dockerClient.removeContainerCmd(containerId).exec();
                 }catch(Exception e2){
                     dockerClient.removeContainerCmd(containerId).exec();
                 }

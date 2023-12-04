@@ -30,17 +30,17 @@ public class SettingsController {
         return new ResponseEntity<>(HttpStatus.OK);
     }
     @PostMapping("/loadbalancer")
-    public ResponseEntity<?> loadBalancerController(@RequestParam String strategy,@RequestParam String service, String username,@RequestParam Optional<List<Integer>> weights){
+    public ResponseEntity<?> loadBalancerController(@RequestParam String strategy,@RequestParam String service, String username,@RequestParam Optional<List<String>> weights){
         User currentUser = adminAgent.addAndGetAgent(username);
         currentUser.setLoadBalancerStrategy(strategy,service, weights.orElse(null));
         return new ResponseEntity<>(HttpStatus.OK);
     }
     @PostMapping("/start")
-    public ResponseEntity<?> startServiceController(@RequestParam List<String> services, String username,@RequestParam  Optional<String> lb_strategy,@RequestParam  Optional<String> as_strategy,@RequestParam Optional<List<Integer>> weights){
+    public ResponseEntity<?> startServiceController(@RequestParam List<String> services, String username,@RequestParam  Optional<String> lb_strategy,@RequestParam  Optional<String> as_strategy,@RequestParam Optional<List<String>> weights){
         User currentUser = adminAgent.addAndGetAgent(username);
         List<Image> images = currentUser.getDockerAgent().listAllImages();
         String lb_strategyString = lb_strategy.orElse("weightedRoundRobin");
-        String as_strategyString = as_strategy.orElse("threshold");
+        String as_strategyString = as_strategy.orElse("null");
         for(String serviceNo: services){
             String imageName = "service-"+serviceNo;
 
@@ -77,7 +77,7 @@ public class SettingsController {
     }
 
     @PostMapping("/startsql")
-    public ResponseEntity<?> startMYSQL(String username){
+    public ResponseEntity<?> startMYSQL(@RequestParam String username){
         User currentUser = adminAgent.addAndGetAgent(username);
         List<Image> images = currentUser.getDockerAgent().listAllImages();
         System.out.println("Starting MySQL Server");

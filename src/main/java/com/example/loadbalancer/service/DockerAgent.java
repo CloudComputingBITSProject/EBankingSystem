@@ -88,9 +88,9 @@ public class DockerAgent {
 //        runContainers(listOfContainers);
         return listOfContainers;
     }
-    public void buildAllImages(){
+    public void buildAllImages(int n){
         List<Image> images = listAllImages();
-        for(int i=1;i<=1;i++){
+        for(int i=1;i<=n;i++){
             String imageName = "service-"+i;
             boolean imageExists = imageAlreadyBuilt(images,imageName);
             if(!imageExists){
@@ -175,12 +175,17 @@ public class DockerAgent {
         }
     }
 
-    public List<Container> listAllContainers(){
-        List<Container> containers = this.dockerClient.listContainersCmd().exec();
-        System.out.println("\nList of all currently Running Containers");
+    public List<Container> listAllContainers() {
+        return listAllContainers(true);
+    }
 
-        for(Container container: containers){
-            System.out.println(Arrays.toString(container.getNames()));
+    public List<Container> listAllContainers(boolean display){
+        List<Container> containers = this.dockerClient.listContainersCmd().exec();
+        if(display){
+            System.out.println("\nList of all currently Running Containers");
+            for(Container container: containers){
+                System.out.println(Arrays.toString(container.getNames()));
+            }
         }
         return containers;
     }
