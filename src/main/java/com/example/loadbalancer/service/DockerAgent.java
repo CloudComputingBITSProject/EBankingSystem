@@ -78,7 +78,7 @@ public class DockerAgent {
 //                System.out.println("DEBUG 3");
                 List<Container> containers = this.dockerClient.listContainersCmd().withShowAll(true).exec();
                 String containerId = findContainerIdByName(containers, containerName).getId();
-                System.out.println("ID: "+containerId);
+//                System.out.println("ID: "+containerId);
                 try{
 //                    System.out.println("DEBUG 4");
                     this.dockerClient.removeContainerCmd(containerId).exec();
@@ -302,7 +302,7 @@ public class DockerAgent {
     }
 
     public List<Container> scaleDown(DockerAgent dockerAgent, String username, String serviceName,int currentCount,int numberOfContainers) {
-        List<Container> containers = dockerAgent.listAllContainers();
+        List<Container> containers = dockerAgent.listAllContainers(false);
         List<Container> containersToBeDeleted = new ArrayList<>();
         for(int i=currentCount-1;i>2 && numberOfContainers>0;i--){
             for(Container container: containers){

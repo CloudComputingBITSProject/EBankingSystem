@@ -18,10 +18,10 @@ public class PowerOfTwoChoicesLoadBalancer implements LoadBalancer {
         int port = 9090;
         int n = containerList.size();
         int randomNo1 = (int)(Math.random()*n);
-        System.out.println("Random No 1: "+randomNo1);
+//        System.out.println("Random No 1: "+randomNo1);
         int randomNo2;
         do{randomNo2 = (int)(Math.random()*n);}while(randomNo2==randomNo1);
-        System.out.println("Random No 2: "+randomNo2);
+//        System.out.println("Random No 2: "+randomNo2);
 
         double ioMB1 = dockerAgent.getIOUsage(dockerAgent,Arrays.toString(containerList.get(randomNo1).getNames()))/10000.0;
         double ioMB2 = dockerAgent.getIOUsage(dockerAgent,Arrays.toString(containerList.get(randomNo2).getNames()))/10000.0;

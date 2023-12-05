@@ -29,7 +29,7 @@ public class ThresholdAutoScaler implements AutoScaler{
         System.out.println("Container Autoscaler updated to Threshold-Based Implementation");
         this.containerList = containerList;
         this.dockerAgent = dockerAgent;
-        this.threshold = 0.3d;
+        this.threshold = 0.01d;
         this.time = System.currentTimeMillis();
         this.serviceName = serviceName;
         this.username = username;

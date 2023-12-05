@@ -35,7 +35,7 @@ public class Service1Controller {
         }
         String firstUrl = "http://localhost:8080";
         String fullPath = request.getRequestURI();
-        System.out.println("fullPath: "+fullPath);
+//        System.out.println("fullPath: "+fullPath);
         String dynamicPath = fullPath.replaceFirst("/service1/", "/");
         String newPath = firstUrl + dynamicPath;
         return redirectService.route(request,"service-1",newPath,currentUser);
